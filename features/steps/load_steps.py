@@ -22,8 +22,17 @@ Steps file for products.feature
 For information on Waiting until elements are present in the HTML see:
     https://selenium-python.readthedocs.io/waits.html
 """
+"""
+Product Steps
+
+Steps file for products.feature
+
+For information on Waiting until elements are present in the HTML see:
+    https://selenium-python.readthedocs.io/waits.html
+"""
 import requests
 from behave import given
+from service.models import Category
 
 # HTTP Return Codes
 HTTP_200_OK = 200
@@ -32,21 +41,29 @@ HTTP_204_NO_CONTENT = 204
 
 @given('the following products')
 def step_impl(context):
-    """ Delete all Products and load new ones """
-    #
-    # List all of the products and delete them one by one
-    #
+    """Clear the catalog and load new products via REST API"""
+
+    # Clear all existing products
     rest_endpoint = f"{context.base_url}/products"
     context.resp = requests.get(rest_endpoint)
-    assert(context.resp.status_code == HTTP_200_OK)
+    assert context.resp.status_code == HTTP_200_OK
+
     for product in context.resp.json():
         context.resp = requests.delete(f"{rest_endpoint}/{product['id']}")
-        assert(context.resp.status_code == HTTP_204_NO_CONTENT)
+        assert context.resp.status_code == HTTP_204_NO_CONTENT
 
-    #
-    # load the database with new products
-    #
+    # Load the new products using REST API
     for row in context.table:
-        #
-        # ADD YOUR CODE HERE TO CREATE PRODUCTS VIA THE REST API
-        #
+        category = Category[row['category']].name  # Get string enum value
+        available = row['available'].lower() == 'true'
+
+        product_data = {
+            "name": row['name'],
+            "description": row['description'],
+            "price": float(row['price']),
+            "available": available,
+            "category": category
+        }
+
+        context.resp = requests.post(rest_endpoint, json=product_data)
+        assert context.resp.status_code == HTTP_201_CREATED
